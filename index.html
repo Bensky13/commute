@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="theme-color" content="#080c18"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Home Route"/>
+<link rel="manifest" href="manifest.json"/>
+<title>Home Route</title>
+<style>
+:root {
+  --bg:#080c18; --bg2:#0e1424; --bg3:#151c30;
+  --border:#1e2840; --borderb:#2a3650;
+  --text:#d4daf0; --dim:#6b7a9e; --muted:#3a4560;
+  --accent:#4fa3ff; --accent2:#7c6fff;
+  --green:#3ddc84; --amber:#ffb347; --red:#ff5f5f;
+  --r:12px; --rs:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'DM Mono','Courier New',monospace;font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased;overscroll-behavior:none}
+#app{max-width:480px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column}
+header{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--border);padding:env(safe-area-inset-top,0) 0 0}
+.header-inner{display:flex;align-items:center;justify-content:space-between;padding:14px 20px}
+.logo{display:flex;align-items:center;gap:8px}
+.logo-icon{font-size:18px;color:var(--accent)}
+.logo-text{font-size:18px;font-weight:300;letter-spacing:-0.3px;color:var(--text);font-style:italic}
+.last-refresh{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
+main{flex:1;padding:0 16px;padding-bottom:calc(24px + env(safe-area-inset-bottom,0))}
+.phase-section{padding:20px 0 12px}
+.phase-label{font-size:10px;letter-spacing:.12em;color:var(--muted);margin-bottom:10px}
+.phase-pills{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.phase-pill{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rs);color:var(--dim);font-family:inherit;font-size:12px;cursor:pointer;transition:all .15s;text-align:left}
+.phase-pill:hover{border-color:var(--borderb);color:var(--text)}
+.phase-pill.active{border-color:var(--accent);color:var(--accent);background:rgba(79,163,255,.08)}
+.pill-icon{font-size:15px}
+.refresh-row{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.refresh-btn{display:flex;align-items:center;gap:8px;padding:10px 18px;background:var(--accent);border:none;border-radius:100px;color:#000;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;flex-shrink:0}
+.refresh-btn:hover{background:#6bb5ff}
+.refresh-btn:disabled{opacity:.5;cursor:not-allowed}
+.refresh-icon{font-size:16px;display:inline-block}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.demo-toggle{display:flex;align-items:center;gap:6px;cursor:pointer;flex-shrink:0}
+.demo-toggle input{-webkit-appearance:none;appearance:none;width:32px;height:18px;background:var(--bg3);border:1px solid var(--borderb);border-radius:100px;cursor:pointer;position:relative;transition:background .2s}
+.demo-toggle input::after{content:'';position:absolute;width:12px;height:12px;background:var(--dim);border-radius:50%;top:2px;left:2px;transition:all .2s}
+.demo-toggle input:checked{background:rgba(124,111,255,.3);border-color:var(--accent2)}
+.demo-toggle input:checked::after{left:16px;background:var(--accent2)}
+.demo-label{font-size:11px;color:var(--dim);letter-spacing:.05em}
+.demo-toggle input:checked~.demo-label{color:var(--accent2)}
+.data-age{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;margin-left:auto}
+.loading-state{display:none;flex-direction:column;align-items:center;gap:12px;padding:40px 0;color:var(--dim)}
+.loading-dots{display:flex;gap:6px}
+.loading-dots span{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:blink 1.2s ease-in-out infinite}
+.loading-dots span:nth-child(2){animation-delay:.2s}
+.loading-dots span:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}
+.error-state{display:none;flex-direction:column;align-items:center;gap:12px;padding:30px;text-align:center;color:var(--amber)}
+.error-state button{padding:8px 20px;background:transparent;border:1px solid var(--amber);border-radius:100px;color:var(--amber);font-family:inherit;font-size:12px;cursor:pointer}
+.routes-section{transition:opacity .2s}
+.empty-state{padding:40px 0;text-align:center;color:var(--dim);line-height:1.8}
+.decision-header{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.1em;color:var(--amber);margin-bottom:14px;padding:10px 12px;background:rgba(255,179,71,.08);border:1px solid rgba(255,179,71,.2);border-radius:var(--rs)}
+.route-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px}
+.route-card.route-best{border-color:var(--accent);background:rgba(79,163,255,.04)}
+.route-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;gap:12px}
+.route-label-group{display:flex;align-items:flex-start;gap:10px;min-width:0;flex:1}
+.best-badge{font-size:9px;letter-spacing:.1em;background:var(--accent);color:#000;padding:2px 6px;border-radius:4px;font-weight:500;flex-shrink:0;margin-top:3px}
+.route-icon{font-size:20px;flex-shrink:0;margin-top:1px}
+.route-name{font-size:16px;font-weight:400;color:var(--text);letter-spacing:-.2px;font-style:italic}
+.route-desc{font-size:11px;color:var(--dim);margin-top:2px;line-height:1.4}
+.route-time{text-align:right;flex-shrink:0}
+.total-mins{display:block;font-size:28px;font-weight:300;color:var(--text);line-height:1;letter-spacing:-1px;font-style:italic}
+.total-mins.dim{color:var(--muted)}
+.arrival-time{display:block;font-size:11px;color:var(--dim);margin-top:3px}
+.route-stack{display:flex;flex-direction:column;border-top:1px solid var(--border);padding-top:12px;gap:1px}
+.stack-item{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(30,40,64,.5);gap:12px}
+.stack-item:last-child{border-bottom:none}
+.stack-item.stack-highlight{background:rgba(255,95,95,.06);margin:0 -8px;padding:7px 8px;border-radius:4px}
+.stack-label{font-size:11px;color:var(--dim);display:flex;align-items:center;gap:6px;flex:1}
+.stack-value{font-size:12px;color:var(--text);text-align:right;font-variant-numeric:tabular-nums;flex-shrink:0}
+.stack-note{font-size:10px;color:var(--muted)}
+.line-badge{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:10px;font-weight:500;flex-shrink:0}
+.line-2,.line-3{background:#ee352e;color:#fff}
+.line-4,.line-5,.line-6{background:#00933c;color:#fff}
+.line-B,.line-F{background:#ff6319;color:#fff}
+.line-Q{background:#fccc0a;color:#000}
+.route-caveats{margin-top:10px;display:flex;flex-direction:column;gap:4px}
+.caveat{font-size:11px;color:var(--amber);padding:6px 10px;background:rgba(255,179,71,.07);border-radius:4px;border-left:2px solid var(--amber)}
+.dock-section{margin-top:8px}
+.section-label{font-size:10px;letter-spacing:.12em;color:var(--muted);margin-bottom:10px}
+.home-dock{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rs);padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+.home-dock.dock-full{border-color:var(--red);background:rgba(255,95,95,.05)}
+.dock-meta{display:flex;flex-direction:column;gap:2px}
+.dock-priority{font-size:9px;letter-spacing:.1em;color:var(--muted)}
+.dock-name{font-size:12px;color:var(--text)}
+.dock-spots{font-size:13px;color:var(--green)}
+.dock-alert{font-size:12px;color:var(--red)}
+.muted{color:var(--dim)}
+.muted-center{color:var(--dim);text-align:center;padding:30px 0}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--borderb);border-radius:2px}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">⬡</span>
+        <span class="logo-text">Home Route</span>
+      </div>
+      <div class="last-refresh" id="lastRefresh">—</div>
+    </div>
+  </header>
+  <main>
+    <section class="phase-section">
+      <div class="phase-label">WHERE ARE YOU?</div>
+      <div class="phase-pills">
+        <button class="phase-pill active" data-phase="on-train"><span class="pill-icon">🚇</span><span>On the 4/5</span></button>
+        <button class="phase-pill" data-phase="approaching-nevins"><span class="pill-icon">⚡</span><span>Near Nevins</span></button>
+        <button class="phase-pill" data-phase="approaching-atlantic"><span class="pill-icon">⚡</span><span>Near Atlantic</span></button>
+        <button class="phase-pill" data-phase="at-dock"><span class="pill-icon">🚲</span><span>At Dock</span></button>
+      </div>
+    </section>
+
+    <div class="refresh-row">
+      <button class="refresh-btn" id="refreshBtn" onclick="loadData()">
+        <span class="refresh-icon" id="refreshIcon">↻</span>
+        <span>Refresh Now</span>
+      </button>
+      <label class="demo-toggle">
+        <input type="checkbox" id="demoToggle"/>
+        <span class="demo-label">Demo</span>
+      </label>
+      <div class="data-age" id="dataAge"></div>
+    </div>
+
+    <div class="loading-state" id="loadingState">
+      <div class="loading-dots"><span></span><span></span><span></span></div>
+      <p>Fetching live data…</p>
+    </div>
+    <div class="error-state" id="errorState">
+      <p>⚠ Could not load live data.<br>Toggle Demo mode to preview the UI.</p>
+      <button onclick="loadData()">Try Again</button>
+    </div>
+
+    <section class="routes-section" id="routesSection">
+      <div id="routesContainer">
+        <div class="empty-state">
+          <p>Toggle <strong>Demo</strong> and tap <strong>Refresh Now</strong> to preview.<br><br>On GitHub Pages, live data loads automatically.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="dock-section" id="dockSection" style="display:none">
+      <div class="section-label">HOME DOCKS</div>
+      <div id="homeDockStatus"></div>
+    </section>
+  </main>
+</div>
+
+<script>
+// ── Station names ─────────────────────────────────────────────
+const SN = {
+  GRAND_ARMY_1:   "Plaza St W & Flatbush Ave",
+  GRAND_ARMY_2:   "Grand Army Plaza & Plaza St W",
+  HOME_1:         "Prospect Park SW & Greenwood Ave",
+  HOME_2:         "Park Circle & East Dr",
+  HOME_3:         "Prospect Ave & Greenwood Ave",
+  PARKSIDE_PICKUP:"Parkside Ave & Ocean Ave",
+  CHURCH_PICKUP:  "Parade Pl & Crooke Ave",
+};
+
+// ── Time constants (minutes) ──────────────────────────────────
+const W = {
+  NEVINS_TO_PLATFORM:2, GRAND_ARMY_TO_DOCK:3,
+  PARK_DRIVE_RIDE:8, SW_EXIT_TO_HOME:3,
+  ATLANTIC_TO_BQ:3,
+  PARKSIDE_EXIT_TO_DOCK:4, CHURCH_EXIT_TO_DOCK:3,
+  PARKSIDE_RIDE:10, CHURCH_RIDE:12,
+  BLEECKER_TRANSFER:3, F_RIDE:22, FHP_TO_HOME:3,
+};
+const T = {
+  SIX_14_TO_BLEECKER:6, NEVINS_TO_GAP:8,
+  ATLANTIC_TO_PARKSIDE:5, ATLANTIC_TO_CHURCH:6,
+};
+
+// ── API URLs ──────────────────────────────────────────────────
+const BIKE_STATUS = "https://gbfs.citibikenyc.com/gbfs/en/station_status.json";
+const BIKE_INFO   = "https://gbfs.citibikenyc.com/gbfs/en/station_information.json";
+// wheresthefuckingtrain.com doesn't send CORS headers so we route through corsproxy.io
+const WTFT_BASE  = "https://api.wheresthefuckingtrain.com/by-id/";
+const SUBWAY_API = "https://corsproxy.io/?url=" + encodeURIComponent(WTFT_BASE);
+
+// ── State ─────────────────────────────────────────────────────
+const state = {
+  phase: "on-train",
+  lastFetch: null,
+  bikes: {},      // normalized-name → station status object
+  subway: {},     // stopId → api response
+  loading: false,
+};
+
+// ── Phase buttons ─────────────────────────────────────────────
+document.querySelectorAll(".phase-pill").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".phase-pill").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    state.phase = btn.dataset.phase;
+    syncDockSection();
+    if (state.lastFetch) renderRoutes();
+  });
+});
+
+function syncDockSection() {
+  const el = document.getElementById("dockSection");
+  if (state.phase === "at-dock") {
+    el.style.display = "block";
+    renderHomeDocks();
+  } else {
+    el.style.display = "none";
+  }
+}
+
+// ── Demo toggle ───────────────────────────────────────────────
+document.getElementById("demoToggle").addEventListener("change", function() {
+  if (this.checked) loadData();
+});
+
+function isDemo() {
+  return document.getElementById("demoToggle").checked;
+}
+
+function injectDemo() {
+  const now = Date.now() / 1000;
+
+  state.subway = {
+    "635": {data:[{S:[{route:"6",time:now+4*60},{route:"6",time:now+11*60}]}]},
+    "629": {data:[{S:[{route:"F",time:now+14*60},{route:"F",time:now+22*60}]}]},
+    "A36": {data:[{S:[{route:"3",time:now+2*60},{route:"2",time:now+7*60}]}]},
+    "A48": {data:[{S:[{route:"3",time:now+11*60}]}]},
+    "D24": {data:[{S:[{route:"Q",time:now+3*60},{route:"B",time:now+9*60}]}]},
+    "D26": {data:[{S:[{route:"Q",time:now+8*60}]}]},
+    "D27": {data:[{S:[{route:"B",time:now+13*60}]}]},
+  };
+
+  const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  state.bikes = {};
+  [
+    {name:"Plaza St W & Flatbush Ave",         eb:3, cl:1, docks:8},
+    {name:"Grand Army Plaza & Plaza St W",      eb:2, cl:0, docks:5},
+    {name:"Parkside Ave & Ocean Ave",           eb:1, cl:2, docks:6},
+    {name:"Parade Pl & Crooke Ave",             eb:0, cl:3, docks:4},
+    {name:"Prospect Park SW & Greenwood Ave",   eb:0, cl:0, docks:4},
+    {name:"Park Circle & East Dr",              eb:0, cl:0, docks:7},
+    {name:"Prospect Ave & Greenwood Ave",       eb:0, cl:0, docks:0},
+  ].forEach(s => {
+    state.bikes[norm(s.name)] = {
+      name: s.name,
+      num_bikes_available: s.eb + s.cl,
+      num_ebikes_available: s.eb,
+      num_docks_available: s.docks,
+    };
+  });
+}
+
+// ── Load data ─────────────────────────────────────────────────
+async function loadData() {
+  if (state.loading) return;
+  state.loading = true;
+
+  const btn  = document.getElementById("refreshBtn");
+  const icon = document.getElementById("refreshIcon");
+  btn.disabled = true;
+  icon.style.animation = "spin 1s linear infinite";
+  document.getElementById("loadingState").style.display = "flex";
+  document.getElementById("errorState").style.display = "none";
+  document.getElementById("routesSection").style.opacity = "0.4";
+
+  try {
+    if (isDemo()) {
+      await new Promise(r => setTimeout(r, 700));
+      injectDemo();
+    } else {
+      await Promise.all([fetchBikes(), fetchSubway()]);
+    }
+    state.lastFetch = new Date();
+    updateTimestamp();
+    renderRoutes();
+    document.getElementById("errorState").style.display = "none";
+  } catch(err) {
+    console.error("Load failed:", err);
+    document.getElementById("errorState").style.display = "flex";
+  } finally {
+    state.loading = false;
+    btn.disabled = false;
+    icon.style.animation = "";
+    document.getElementById("loadingState").style.display = "none";
+    document.getElementById("routesSection").style.opacity = "1";
+    syncDockSection();
+  }
+}
+
+// ── Citi Bike fetch ───────────────────────────────────────────
+async function fetchBikes() {
+  const [sr, ir] = await Promise.all([fetch(BIKE_STATUS), fetch(BIKE_INFO)]);
+  if (!sr.ok || !ir.ok) throw new Error("Citi Bike fetch failed");
+  const [sd, id] = await Promise.all([sr.json(), ir.json()]);
+
+  const byId = {};
+  sd.data.stations.forEach(s => { byId[s.station_id] = s; });
+
+  const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  state.bikes = {};
+  id.data.stations.forEach(info => {
+    const st = byId[info.station_id];
+    if (st) state.bikes[norm(info.name)] = { ...st, name: info.name };
+  });
+}
+
+function getDock(name) {
+  const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const n = norm(name);
+  if (state.bikes[n]) return state.bikes[n];
+  // Fallback: substring match
+  for (const k of Object.keys(state.bikes)) {
+    if (k.includes(n) || n.includes(k)) return state.bikes[k];
+  }
+  return null;
+}
+
+function bikeInfo(dockList) {
+  const valid = dockList.filter(Boolean);
+  if (!valid.length) return { summary: "No data", hasEbike: false };
+  let eb = 0, cl = 0;
+  valid.forEach(d => {
+    eb += d.num_ebikes_available || 0;
+    cl += Math.max(0, (d.num_bikes_available || 0) - (d.num_ebikes_available || 0));
+  });
+  return {
+    summary: eb > 0
+      ? `⚡ ${eb} e-bike${eb !== 1 ? "s" : ""}, ${cl} classic`
+      : `🚴 ${cl} classic (no e-bikes)`,
+    hasEbike: eb > 0,
+  };
+}
+
+// ── Subway fetch ──────────────────────────────────────────────
+async function fetchSubway() {
+  const ids = ["637","234","237","235","D27","D28"];
+  const results = {};
+  await Promise.all(ids.map(async id => {
+    try {
+      const r = await fetch("https://corsproxy.io/?url=" + encodeURIComponent(WTFT_BASE + id));
+      if (r.ok) results[id] = await r.json();
+      else results[id] = null;
+    } catch(e) { results[id] = null; }
+  }));
+  state.subway = results;
+}
+
+function nextTrain(stopId, lines) {
+  const d = state.subway[stopId];
+  if (!d || !d.data || !d.data[0]) return null;
+  const now = Date.now();
+  const arr = (d.data[0].S || [])
+    .filter(t => lines.includes(t.route) && new Date(t.time).getTime() > now)
+    .sort((a, b) => new Date(a.time) - new Date(b.time));
+  if (!arr.length) return null;
+  const minAway = t => Math.round((new Date(t.time).getTime() - now) / 60000);
+  return {
+    line: arr[0].route,
+    min:  minAway(arr[0]),
+    next: arr[1] ? { line: arr[1].route, min: minAway(arr[1]) } : null,
+  };
+}
+
+// ── Route calculations ────────────────────────────────────────
+function calcR1() {
+  const six = nextTrain("637", ["6"]);
+  const f   = nextTrain("637", ["F"]);
+  let total = null, stack = [];
+
+  if (six && f) {
+    const arriveAtBleecker = six.min + T.SIX_14_TO_BLEECKER + W.BLEECKER_TRANSFER;
+    const fWait = Math.max(0, f.min - arriveAtBleecker);
+    total = six.min + T.SIX_14_TO_BLEECKER + fWait + W.F_RIDE + W.FHP_TO_HOME;
+    stack = [
+      { label:"6 at Bleecker St",         value:`${six.min} min`,  line:"6", note:six.next?`Next: ${six.next.min} min`:null },
+      { label:"Walk → Broadway-Lafayette",value:`${W.BLEECKER_TRANSFER} min` },
+      { label:"F at Broadway-Lafayette",  value:`${f.min} min`,   line:"F", note:f.next?`Next: ${f.next.min} min`:null },
+      { label:"F → Fort Hamilton Pkwy",  value:`~${W.F_RIDE} min` },
+      { label:"Walk home from FHP",      value:`~${W.FHP_TO_HOME} min` },
+    ];
+  } else {
+    stack = [
+      { label:"6 at 14 St",    value:six?`${six.min} min`:"—", line:"6" },
+      { label:"F at Bleecker", value:f?`${f.min} min`:"—",     line:"F" },
+      { label:"Walk home",     value:`~${W.FHP_TO_HOME} min` },
+    ];
+  }
+
+  return {
+    id:"r1", name:"via F Train",
+    desc:"4/5 → 6 at 14 St → F at Bleecker → Fort Hamilton Pkwy",
+    icon:"🚇", total, stack,
+    caveats:["F can have 8+ min gaps — check next arrival before committing."],
+    bikeRequired:false,
+  };
+}
+
+function calcR2() {
+  const t23  = nextTrain("234", ["2","3"]);
+  const bike = bikeInfo([getDock(SN.GRAND_ARMY_1), getDock(SN.GRAND_ARMY_2)]);
+  let total = null;
+
+  if (t23 && bike.hasEbike) {
+    total = t23.min + W.NEVINS_TO_PLATFORM + T.NEVINS_TO_GAP
+          + W.GRAND_ARMY_TO_DOCK + W.PARK_DRIVE_RIDE + W.SW_EXIT_TO_HOME;
+  }
+
+  const stack = [
+    { label:"2/3 at Nevins St",        value:t23?`${t23.min} min`:"—", line:t23?.line||"2", note:t23?.next?`Next: ${t23.next.min} min`:null },
+    { label:"Ride → Grand Army Plaza", value:`~${W.NEVINS_TO_PLATFORM + T.NEVINS_TO_GAP} min` },
+    { label:"Citi Bike pickup",        value:bike.summary, isHighlight:!bike.hasEbike },
+    { label:"Park drive → home dock", value:`~${W.PARK_DRIVE_RIDE + W.SW_EXIT_TO_HOME} min` },
+  ];
+
+  const caveats = [];
+  if (!bike.hasEbike) caveats.push("⚠ No e-bikes at Grand Army — consider Route 3");
+
+  return {
+    id:"r2", name:"via 2/3 + Park",
+    desc:"4/5 → Nevins → 2/3 → Grand Army → Citi Bike through Prospect Park",
+    icon:"🌿", total, stack, caveats, bikeRequired:true, bike,
+  };
+}
+
+function calcR3() {
+  const bq = nextTrain("235", ["B","Q"]);
+  const isB  = bq?.line === "B";
+  const stop = isB ? "Church Ave" : "Parkside Ave";
+  const bike = bikeInfo([getDock(isB ? SN.CHURCH_PICKUP : SN.PARKSIDE_PICKUP)]);
+  const tTime = isB ? T.ATLANTIC_TO_CHURCH   : T.ATLANTIC_TO_PARKSIDE;
+  const pWalk = isB ? W.CHURCH_EXIT_TO_DOCK  : W.PARKSIDE_EXIT_TO_DOCK;
+  const ride  = isB ? W.CHURCH_RIDE          : W.PARKSIDE_RIDE;
+  let total = null;
+
+  if (bq && bike.hasEbike) {
+    total = bq.min + W.ATLANTIC_TO_BQ + tTime + pWalk + ride;
+  }
+
+  const stack = [
+    { label:`${bq?.line||"B/Q"} at Atlantic`, value:bq?`${bq.min} min`:"—", line:bq?.line||"Q", note:bq?.next?`Next: ${bq.next.min} min`:null },
+    { label:`Ride → ${stop}`,         value:`~${tTime} min` },
+    { label:"Walk to pickup dock",    value:`~${pWalk} min` },
+    { label:"Citi Bike pickup",       value:bike.summary, isHighlight:!bike.hasEbike },
+    { label:"Ride via Parkside Ave → home", value:`~${ride} min` },
+  ];
+
+  const caveats = !bike.hasEbike ? ["⚠ No e-bikes at pickup dock"] : [];
+
+  return {
+    id:"r3", name:"via B/Q + Parkside",
+    desc:`4/5 → Atlantic → ${bq?.line||"B/Q"} → ${stop} → Citi Bike via Parkside Ave`,
+    icon:"🚲", total, stack, caveats, bikeRequired:true, bike,
+  };
+}
+
+// ── Ranking ───────────────────────────────────────────────────
+function rankRoutes(routes) {
+  return routes.sort((a, b) => {
+    const aBad = a.bikeRequired && !a.bike?.hasEbike;
+    const bBad = b.bikeRequired && !b.bike?.hasEbike;
+    if (aBad && !bBad) return 1;
+    if (bBad && !aBad) return -1;
+    if (a.total !== null && b.total !== null) return a.total - b.total;
+    if (a.total !== null) return -1;
+    if (b.total !== null) return 1;
+    return 0;
+  });
+}
+
+// ── Render routes ─────────────────────────────────────────────
+function renderRoutes() {
+  const c = document.getElementById("routesContainer");
+
+  if (state.phase === "at-dock") {
+    c.innerHTML = `<p class="muted-center">See Home Docks below ↓</p>`;
+    return;
+  }
+
+  if (state.phase === "approaching-nevins") {
+    const routes = rankRoutes([calcR2(), calcR3()]);
+    c.innerHTML = `<div class="decision-header">⚡ Nevins: get off for 2/3 or stay for B/Q?</div>`
+      + routes.map((r, i) => routeCard(r, i === 0)).join("");
+    return;
+  }
+
+  if (state.phase === "approaching-atlantic") {
+    c.innerHTML = `<div class="decision-header">⚡ Atlantic: B or Q — whichever comes first</div>`
+      + routeCard(calcR3(), true);
+    return;
+  }
+
+  // Default: all routes ranked
+  const routes = rankRoutes([calcR1(), calcR2(), calcR3()]);
+  c.innerHTML = routes.map((r, i) => routeCard(r, i === 0)).join("");
+}
+
+function routeCard(route, best) {
+  const arrTime = route.total
+    ? new Date(Date.now() + route.total * 60000)
+        .toLocaleTimeString("en-US", { hour:"numeric", minute:"2-digit" })
+    : null;
+
+  const stackHtml = route.stack.map(item => `
+    <div class="stack-item${item.isHighlight ? " stack-highlight" : ""}">
+      <span class="stack-label">
+        ${item.label}
+        ${item.line ? `<span class="line-badge line-${item.line}">${item.line}</span>` : ""}
+      </span>
+      <span class="stack-value">
+        ${item.value}
+        ${item.note ? `<span class="stack-note"> (${item.note})</span>` : ""}
+      </span>
+    </div>`).join("");
+
+  const caveatsHtml = route.caveats?.length
+    ? `<div class="route-caveats">${route.caveats.map(c => `<div class="caveat">${c}</div>`).join("")}</div>`
+    : "";
+
+  return `
+    <div class="route-card${best ? " route-best" : ""}">
+      <div class="route-header">
+        <div class="route-label-group">
+          ${best ? `<span class="best-badge">BEST</span>` : ""}
+          <span class="route-icon">${route.icon}</span>
+          <div>
+            <div class="route-name">${route.name}</div>
+            <div class="route-desc">${route.desc}</div>
+          </div>
+        </div>
+        <div class="route-time">
+          <span class="total-mins${route.total ? "" : " dim"}">${route.total ? route.total + "'" : "—"}</span>
+          ${arrTime ? `<span class="arrival-time">home ~${arrTime}</span>` : ""}
+        </div>
+      </div>
+      <div class="route-stack">${stackHtml}</div>
+      ${caveatsHtml}
+    </div>`;
+}
+
+// ── Home docks ────────────────────────────────────────────────
+function renderHomeDocks() {
+  const c = document.getElementById("homeDockStatus");
+  if (!Object.keys(state.bikes).length) {
+    c.innerHTML = `<p class="muted">Refresh to see dock status.</p>`;
+    return;
+  }
+  c.innerHTML = [SN.HOME_1, SN.HOME_2, SN.HOME_3].map((name, i) => {
+    const st     = getDock(name);
+    const label  = ["Primary", "Backup", "Backup 2"][i];
+    const spots  = st ? (st.num_docks_available ?? 0) : null;
+    const full   = spots === 0;
+    return `
+      <div class="home-dock${full ? " dock-full" : ""}">
+        <div class="dock-meta">
+          <span class="dock-priority">${label}</span>
+          <span class="dock-name">${name}</span>
+        </div>
+        <div>
+          ${st
+            ? full
+              ? `<span class="dock-alert">⚠ FULL — 0 spots</span>`
+              : `<span class="dock-spots">✓ ${spots} spot${spots !== 1 ? "s" : ""} open</span>`
+            : `<span class="muted">No data</span>`}
+        </div>
+      </div>`;
+  }).join("");
+}
+
+// ── Timestamp ─────────────────────────────────────────────────
+function updateTimestamp() {
+  const t = state.lastFetch.toLocaleTimeString("en-US", { hour:"numeric", minute:"2-digit", second:"2-digit" });
+  document.getElementById("lastRefresh").textContent = t;
+  document.getElementById("dataAge").textContent = `Data from ${t}`;
+}
+
+setInterval(() => {
+  if (!state.lastFetch) return;
+  const secs = Math.round((Date.now() - state.lastFetch) / 1000);
+  document.getElementById("dataAge").textContent =
+    secs < 60 ? `Data ${secs}s old` : `Data ${Math.round(secs / 60)}m old`;
+}, 30000);
+</script>
+</body>
+</html>
