@@ -352,7 +352,7 @@ async function fetchSubway() {
   const results = {};
   await Promise.all(ids.map(async id => {
     try {
-      const r = await fetch("https://corsproxy.io/?url=" + encodeURIComponent(WTFT_BASE + id));
+      const r = await fetch("https://corsproxy.io/?url=" + encodeURIComponent(WTFT_BASE + id + "?t=" + Date.now()));
       if (r.ok) results[id] = await r.json();
       else results[id] = null;
     } catch(e) { results[id] = null; }
