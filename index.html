@@ -292,7 +292,7 @@ function bikeInfo(dockList) {
 
 // ── Subway fetch ──────────────────────────────────────────────
 async function fetchSubway() {
-  const ids = ["637","234","237","235","D27","D28"];
+  const ids = ["635","637","234","235"];
   const results = {};
   await Promise.all(ids.map(async id => {
     try {
@@ -323,28 +323,29 @@ function nextTrain(stopId, lines, offsetMin = 0) {
   };
 }
 
-// Travel time offsets from 14th St on the 4/5 (minutes)
-const OFFSET = {
-  TO_BLEECKER:  6,   // 14th St → Bleecker on the 6 (after transferring at 14th)
-  TO_NEVINS:    8,   // 14th St → Nevins on 4/5
-  TO_ATLANTIC: 10,   // 14th St → Atlantic on 4/5
+// Travel time offsets from each phase (minutes)
+const PHASE_OFFSET = {
+  "at-14th":            { NEVINS: 8, ATLANTIC: 10 },
+  "approaching-nevins": { NEVINS: 0, ATLANTIC: 2  },
+  "at-atlantic":        { NEVINS: 0, ATLANTIC: 0  },
 };
-
-function getOffset(stopType) {
-  if (state.phase !== "at-14th") return 0;
-  return OFFSET[stopType] || 0;
-}
+function nevinOffset()    { return (PHASE_OFFSET[state.phase] || {}).NEVINS    || 0; }
+function atlanticOffset() { return (PHASE_OFFSET[state.phase] || {}).ATLANTIC  || 0; }
 
 // ── Route calculations ────────────────────────────────────────
 function calcR1() {
-  const sixOffset = getOffset("TO_BLEECKER");
-  const six = nextTrain("637", ["6"], sixOffset);
-  const f   = nextTrain("637", ["F"], sixOffset);
+  // 6 train at 14th St — no offset, you're there
+  const six = nextTrain("635", ["6"]);
+  // F at Broadway-Lafayette — offset by time to ride the 6 + arrive at transfer point
+  const fOffset = six ? six.min + T.SIX_14_TO_BLEECKER : T.SIX_14_TO_BLEECKER;
+  const f = nextTrain("637", ["F"], fOffset);
   let total = null, stack = [];
   let connectionCaveat = null;
 
   if (six && f) {
-    const gap = f.min - six.min; // minutes between 6 arrival and F arrival
+    // Gap = buffer available between arriving at Broadway-Lafayette and F departing
+    const arriveAtBroadway = six.min + T.SIX_14_TO_BLEECKER;
+    const gap = f.min - arriveAtBroadway;
     let transferLabel, transferTime;
     if (gap < 1.5) {
       transferLabel = "⚠ Missed — wait for next F";
@@ -357,19 +358,21 @@ function calcR1() {
       transferLabel = "Walk — ~3 min";
       transferTime = 3;
     }
+    // Total from now: wait for 6 + ride to Bleecker + transfer + F ride + walk home
     total = six.min + T.SIX_14_TO_BLEECKER + transferTime + W.F_RIDE + W.FHP_TO_HOME;
     stack = [
-      { label:"6 at Bleecker St",          value:`${six.min} min`, line:"6", note:six.next?`Next: ${six.next.min} min`:null },
+      { label:"6 at 14th St",               value:`${six.min} min`, line:"6", note:six.next?`Next: ${six.next.min} min`:null },
+      { label:"Ride → Bleecker St",          value:`~${T.SIX_14_TO_BLEECKER} min` },
       { label:"Transfer → Broadway-Lafayette", value:transferLabel, isHighlight: gap < 1.5 },
-      { label:"F at Broadway-Lafayette",   value:`${f.min} min`,  line:"F", note:f.next?`Next: ${f.next.min} min`:null },
-      { label:"F → Fort Hamilton Pkwy",   value:`~${W.F_RIDE} min` },
-      { label:"Walk home from FHP",       value:`~${W.FHP_TO_HOME} min` },
+      { label:"F at Broadway-Lafayette",     value:`${f.min} min`,  line:"F", note:f.next?`Next: ${f.next.min} min`:null },
+      { label:"F → Fort Hamilton Pkwy",     value:`~${W.F_RIDE} min` },
+      { label:"Walk home from FHP",         value:`~${W.FHP_TO_HOME} min` },
     ];
   } else {
     stack = [
-      { label:"6 at Bleecker St",  value:six?`${six.min} min`:"—", line:"6" },
-      { label:"F at Broadway-Lafayette", value:f?`${f.min} min`:"—", line:"F" },
-      { label:"Walk home from FHP", value:`~${W.FHP_TO_HOME} min` },
+      { label:"6 at 14th St",           value:six?`${six.min} min`:"—", line:"6" },
+      { label:"F at Broadway-Lafayette", value:f?`${f.min} min`:"—",   line:"F" },
+      { label:"Walk home from FHP",     value:`~${W.FHP_TO_HOME} min` },
     ];
   }
 
@@ -378,13 +381,13 @@ function calcR1() {
 
   return {
     id:"r1", name:"via F Train",
-    desc:"4/5 → 6 at Bleecker → F at Broadway-Lafayette → Fort Hamilton Pkwy",
+    desc:"4/5 → 6 at 14th St → F at Broadway-Lafayette → Fort Hamilton Pkwy",
     icon:"🚇", total, stack, caveats, bikeRequired:false,
   };
 }
 
 function calcR2() {
-  const t23  = nextTrain("234", ["2","3"], getOffset("TO_NEVINS"));
+  const t23  = nextTrain("234", ["2","3"], nevinOffset());
   const bike = bikeInfo([getDock(SN.GRAND_ARMY_1), getDock(SN.GRAND_ARMY_2)]);
   let total = null;
 
@@ -412,7 +415,7 @@ function calcR2() {
 }
 
 function calcR3() {
-  const bq = nextTrain("235", ["B","Q"], getOffset("TO_ATLANTIC"));
+  const bq = nextTrain("235", ["B","Q"], atlanticOffset());
   const isB  = bq?.line === "B";
   const stop = isB ? "Church Ave" : "Parkside Ave";
   const bike = bikeInfo([getDock(isB ? SN.CHURCH_PICKUP : SN.PARKSIDE_PICKUP)]);
@@ -422,7 +425,8 @@ function calcR3() {
   let total = null;
 
   if (bq && bike.hasEbike) {
-    total = bq.min + W.ATLANTIC_TO_BQ + tTime + pWalk + ride;
+    // bq.min already accounts for when you board — no extra transfer time needed
+    total = bq.min + tTime + pWalk + ride;
   }
 
   const stack = [
@@ -474,14 +478,15 @@ function renderRoutes() {
 
   if (state.phase === "at-atlantic") {
     const r3 = calcR3();
-    const bq = nextTrain("235", ["B","Q"], getOffset("TO_ATLANTIC"));
-    let runWalkMsg = "";
+    // atlanticOffset() = 0 here, so this is live B/Q right now
+    const bq = nextTrain("235", ["B","Q"]);
+    let runWalkMsg = "checking...";
     if (bq) {
-      if (bq.min < 1.5) runWalkMsg = "⚠ Missed — wait for next train";
-      else if (bq.min < 3) runWalkMsg = "🏃 Run — next " + bq.line + " in " + bq.min + " min";
-      else runWalkMsg = "🚶 Walk — next " + bq.line + " in " + bq.min + " min";
+      if (bq.min < 1.5)    runWalkMsg = `⚠ Missed — wait for next ${bq.line}`;
+      else if (bq.min < 3) runWalkMsg = `🏃 Run — ${bq.line} in ${bq.min} min`;
+      else                 runWalkMsg = `🚶 Walk — ${bq.line} in ${bq.min} min`;
     }
-    c.innerHTML = `<div class="decision-header">⚡ At Atlantic: ${runWalkMsg || "checking..."}</div>`
+    c.innerHTML = `<div class="decision-header">⚡ At Atlantic: ${runWalkMsg}</div>`
       + routeCard(r3, true);
     return;
   }
