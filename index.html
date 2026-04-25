@@ -41,13 +41,7 @@ main{flex:1;padding:0 16px;padding-bottom:calc(24px + env(safe-area-inset-bottom
 .refresh-btn:disabled{opacity:.5;cursor:not-allowed}
 .refresh-icon{font-size:16px;display:inline-block}
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-.demo-toggle{display:flex;align-items:center;gap:6px;cursor:pointer;flex-shrink:0}
-.demo-toggle input{-webkit-appearance:none;appearance:none;width:32px;height:18px;background:var(--bg3);border:1px solid var(--borderb);border-radius:100px;cursor:pointer;position:relative;transition:background .2s}
-.demo-toggle input::after{content:'';position:absolute;width:12px;height:12px;background:var(--dim);border-radius:50%;top:2px;left:2px;transition:all .2s}
-.demo-toggle input:checked{background:rgba(124,111,255,.3);border-color:var(--accent2)}
-.demo-toggle input:checked::after{left:16px;background:var(--accent2)}
-.demo-label{font-size:11px;color:var(--dim);letter-spacing:.05em}
-.demo-toggle input:checked~.demo-label{color:var(--accent2)}
+
 .data-age{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;margin-left:auto}
 .loading-state{display:none;flex-direction:column;align-items:center;gap:12px;padding:40px 0;color:var(--dim)}
 .loading-dots{display:flex;gap:6px}
@@ -129,10 +123,7 @@ main{flex:1;padding:0 16px;padding-bottom:calc(24px + env(safe-area-inset-bottom
         <span class="refresh-icon" id="refreshIcon">↻</span>
         <span>Refresh Now</span>
       </button>
-      <label class="demo-toggle">
-        <input type="checkbox" id="demoToggle"/>
-        <span class="demo-label">Demo</span>
-      </label>
+
       <div class="data-age" id="dataAge"></div>
     </div>
 
@@ -141,14 +132,14 @@ main{flex:1;padding:0 16px;padding-bottom:calc(24px + env(safe-area-inset-bottom
       <p>Fetching live data…</p>
     </div>
     <div class="error-state" id="errorState">
-      <p>⚠ Could not load live data.<br>Toggle Demo mode to preview the UI.</p>
+      <p>⚠ Could not load data. Are you connected?</p>
       <button onclick="loadData()">Try Again</button>
     </div>
 
     <section class="routes-section" id="routesSection">
       <div id="routesContainer">
         <div class="empty-state">
-          <p>Toggle <strong>Demo</strong> and tap <strong>Refresh Now</strong> to preview.<br><br>On GitHub Pages, live data loads automatically.</p>
+          <p>Tap <strong>Refresh Now</strong> to load live route data.</p>
         </div>
       </div>
     </section>
@@ -174,7 +165,7 @@ const SN = {
 
 // ── Time constants (minutes) ──────────────────────────────────
 const W = {
-  NEVINS_TO_PLATFORM:2, GRAND_ARMY_TO_DOCK:3,
+  GRAND_ARMY_TO_DOCK:3,
   PARK_DRIVE_RIDE:8, SW_EXIT_TO_HOME:3,
   ATLANTIC_TO_BQ:3,
   PARKSIDE_EXIT_TO_DOCK:4, CHURCH_EXIT_TO_DOCK:3,
@@ -223,48 +214,6 @@ function syncDockSection() {
   }
 }
 
-// ── Demo toggle ───────────────────────────────────────────────
-document.getElementById("demoToggle").addEventListener("change", function() {
-  if (this.checked) loadData();
-});
-
-function isDemo() {
-  return document.getElementById("demoToggle").checked;
-}
-
-function injectDemo() {
-  const now = Date.now() / 1000;
-
-  state.subway = {
-    "635": {data:[{S:[{route:"6",time:now+4*60},{route:"6",time:now+11*60}]}]},
-    "629": {data:[{S:[{route:"F",time:now+14*60},{route:"F",time:now+22*60}]}]},
-    "A36": {data:[{S:[{route:"3",time:now+2*60},{route:"2",time:now+7*60}]}]},
-    "A48": {data:[{S:[{route:"3",time:now+11*60}]}]},
-    "D24": {data:[{S:[{route:"Q",time:now+3*60},{route:"B",time:now+9*60}]}]},
-    "D26": {data:[{S:[{route:"Q",time:now+8*60}]}]},
-    "D27": {data:[{S:[{route:"B",time:now+13*60}]}]},
-  };
-
-  const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, "");
-  state.bikes = {};
-  [
-    {name:"Plaza St W & Flatbush Ave",         eb:3, cl:1, docks:8},
-    {name:"Grand Army Plaza & Plaza St W",      eb:2, cl:0, docks:5},
-    {name:"Parkside Ave & Ocean Ave",           eb:1, cl:2, docks:6},
-    {name:"Parade Pl & Crooke Ave",             eb:0, cl:3, docks:4},
-    {name:"Prospect Park SW & Greenwood Ave",   eb:0, cl:0, docks:4},
-    {name:"Park Circle & East Dr",              eb:0, cl:0, docks:7},
-    {name:"Prospect Ave & Greenwood Ave",       eb:0, cl:0, docks:0},
-  ].forEach(s => {
-    state.bikes[norm(s.name)] = {
-      name: s.name,
-      num_bikes_available: s.eb + s.cl,
-      num_ebikes_available: s.eb,
-      num_docks_available: s.docks,
-    };
-  });
-}
-
 // ── Load data ─────────────────────────────────────────────────
 async function loadData() {
   if (state.loading) return;
@@ -279,12 +228,7 @@ async function loadData() {
   document.getElementById("routesSection").style.opacity = "0.4";
 
   try {
-    if (isDemo()) {
-      await new Promise(r => setTimeout(r, 700));
-      injectDemo();
-    } else {
-      await Promise.all([fetchBikes(), fetchSubway()]);
-    }
+    await Promise.all([fetchBikes(), fetchSubway()]);
     state.lastFetch = new Date();
     updateTimestamp();
     renderRoutes();
@@ -360,12 +304,15 @@ async function fetchSubway() {
   state.subway = results;
 }
 
-function nextTrain(stopId, lines) {
+// offsetMin: only return trains arriving at least offsetMin minutes from now
+// Used when at 14th St to account for travel time to each decision point
+function nextTrain(stopId, lines, offsetMin = 0) {
   const d = state.subway[stopId];
   if (!d || !d.data || !d.data[0]) return null;
   const now = Date.now();
+  const cutoff = now + offsetMin * 60000;
   const arr = (d.data[0].S || [])
-    .filter(t => lines.includes(t.route) && new Date(t.time).getTime() > now)
+    .filter(t => lines.includes(t.route) && new Date(t.time).getTime() > cutoff)
     .sort((a, b) => new Date(a.time) - new Date(b.time));
   if (!arr.length) return null;
   const minAway = t => Math.round((new Date(t.time).getTime() - now) / 60000);
@@ -376,10 +323,23 @@ function nextTrain(stopId, lines) {
   };
 }
 
+// Travel time offsets from 14th St on the 4/5 (minutes)
+const OFFSET = {
+  TO_BLEECKER:  6,   // 14th St → Bleecker on the 6 (after transferring at 14th)
+  TO_NEVINS:    8,   // 14th St → Nevins on 4/5
+  TO_ATLANTIC: 10,   // 14th St → Atlantic on 4/5
+};
+
+function getOffset(stopType) {
+  if (state.phase !== "at-14th") return 0;
+  return OFFSET[stopType] || 0;
+}
+
 // ── Route calculations ────────────────────────────────────────
 function calcR1() {
-  const six = nextTrain("637", ["6"]);
-  const f   = nextTrain("637", ["F"]);
+  const sixOffset = getOffset("TO_BLEECKER");
+  const six = nextTrain("637", ["6"], sixOffset);
+  const f   = nextTrain("637", ["F"], sixOffset);
   let total = null, stack = [];
   let connectionCaveat = null;
 
@@ -424,7 +384,7 @@ function calcR1() {
 }
 
 function calcR2() {
-  const t23  = nextTrain("234", ["2","3"]);
+  const t23  = nextTrain("234", ["2","3"], getOffset("TO_NEVINS"));
   const bike = bikeInfo([getDock(SN.GRAND_ARMY_1), getDock(SN.GRAND_ARMY_2)]);
   let total = null;
 
@@ -436,6 +396,7 @@ function calcR2() {
   const stack = [
     { label:"2/3 at Nevins St",        value:t23?`${t23.min} min`:"—", line:t23?.line||"2", note:t23?.next?`Next: ${t23.next.min} min`:null },
     { label:"Ride → Grand Army Plaza", value:`~${T.NEVINS_TO_GAP} min` },
+    { label:"Walk to dock",            value:`~${W.GRAND_ARMY_TO_DOCK} min` },
     { label:"Citi Bike pickup",        value:bike.summary, isHighlight:!bike.hasEbike },
     { label:"Park drive → home dock", value:`~${W.PARK_DRIVE_RIDE + W.SW_EXIT_TO_HOME} min` },
   ];
@@ -451,7 +412,7 @@ function calcR2() {
 }
 
 function calcR3() {
-  const bq = nextTrain("235", ["B","Q"]);
+  const bq = nextTrain("235", ["B","Q"], getOffset("TO_ATLANTIC"));
   const isB  = bq?.line === "B";
   const stop = isB ? "Church Ave" : "Parkside Ave";
   const bike = bikeInfo([getDock(isB ? SN.CHURCH_PICKUP : SN.PARKSIDE_PICKUP)]);
@@ -513,7 +474,7 @@ function renderRoutes() {
 
   if (state.phase === "at-atlantic") {
     const r3 = calcR3();
-    const bq = nextTrain("235", ["B","Q"]);
+    const bq = nextTrain("235", ["B","Q"], getOffset("TO_ATLANTIC"));
     let runWalkMsg = "";
     if (bq) {
       if (bq.min < 1.5) runWalkMsg = "⚠ Missed — wait for next train";
