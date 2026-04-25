@@ -117,9 +117,9 @@ main{flex:1;padding:0 16px;padding-bottom:calc(24px + env(safe-area-inset-bottom
     <section class="phase-section">
       <div class="phase-label">WHERE ARE YOU?</div>
       <div class="phase-pills">
-        <button class="phase-pill active" data-phase="on-train"><span class="pill-icon">🚇</span><span>On the 4/5</span></button>
+        <button class="phase-pill active" data-phase="at-14th"><span class="pill-icon">🚇</span><span>At 14th St</span></button>
         <button class="phase-pill" data-phase="approaching-nevins"><span class="pill-icon">⚡</span><span>Near Nevins</span></button>
-        <button class="phase-pill" data-phase="approaching-atlantic"><span class="pill-icon">⚡</span><span>Near Atlantic</span></button>
+        <button class="phase-pill" data-phase="at-atlantic"><span class="pill-icon">⚡</span><span>At Atlantic</span></button>
         <button class="phase-pill" data-phase="at-dock"><span class="pill-icon">🚲</span><span>At Dock</span></button>
       </div>
     </section>
@@ -195,7 +195,7 @@ const SUBWAY_API = "https://corsproxy.io/?url=" + encodeURIComponent(WTFT_BASE);
 
 // ── State ─────────────────────────────────────────────────────
 const state = {
-  phase: "on-train",
+  phase: "at-14th",
   lastFetch: null,
   bikes: {},      // normalized-name → station status object
   subway: {},     // stopId → api response
@@ -381,32 +381,45 @@ function calcR1() {
   const six = nextTrain("637", ["6"]);
   const f   = nextTrain("637", ["F"]);
   let total = null, stack = [];
+  let connectionCaveat = null;
 
   if (six && f) {
-    const arriveAtBleecker = six.min + T.SIX_14_TO_BLEECKER + W.BLEECKER_TRANSFER;
-    const fWait = Math.max(0, f.min - arriveAtBleecker);
-    total = six.min + T.SIX_14_TO_BLEECKER + fWait + W.F_RIDE + W.FHP_TO_HOME;
+    const gap = f.min - six.min; // minutes between 6 arrival and F arrival
+    let transferLabel, transferTime;
+    if (gap < 1.5) {
+      transferLabel = "⚠ Missed — wait for next F";
+      transferTime = 0;
+      connectionCaveat = "⚠ Next F leaves before you can transfer — check the one after";
+    } else if (gap < 3) {
+      transferLabel = "Run — ~1.5 min";
+      transferTime = 1.5;
+    } else {
+      transferLabel = "Walk — ~3 min";
+      transferTime = 3;
+    }
+    total = six.min + T.SIX_14_TO_BLEECKER + transferTime + W.F_RIDE + W.FHP_TO_HOME;
     stack = [
-      { label:"6 at Bleecker St",         value:`${six.min} min`,  line:"6", note:six.next?`Next: ${six.next.min} min`:null },
-      { label:"Walk → Broadway-Lafayette",value:`${W.BLEECKER_TRANSFER} min` },
-      { label:"F at Broadway-Lafayette",  value:`${f.min} min`,   line:"F", note:f.next?`Next: ${f.next.min} min`:null },
-      { label:"F → Fort Hamilton Pkwy",  value:`~${W.F_RIDE} min` },
-      { label:"Walk home from FHP",      value:`~${W.FHP_TO_HOME} min` },
+      { label:"6 at Bleecker St",          value:`${six.min} min`, line:"6", note:six.next?`Next: ${six.next.min} min`:null },
+      { label:"Transfer → Broadway-Lafayette", value:transferLabel, isHighlight: gap < 1.5 },
+      { label:"F at Broadway-Lafayette",   value:`${f.min} min`,  line:"F", note:f.next?`Next: ${f.next.min} min`:null },
+      { label:"F → Fort Hamilton Pkwy",   value:`~${W.F_RIDE} min` },
+      { label:"Walk home from FHP",       value:`~${W.FHP_TO_HOME} min` },
     ];
   } else {
     stack = [
-      { label:"6 at 14 St",    value:six?`${six.min} min`:"—", line:"6" },
-      { label:"F at Bleecker", value:f?`${f.min} min`:"—",     line:"F" },
-      { label:"Walk home",     value:`~${W.FHP_TO_HOME} min` },
+      { label:"6 at Bleecker St",  value:six?`${six.min} min`:"—", line:"6" },
+      { label:"F at Broadway-Lafayette", value:f?`${f.min} min`:"—", line:"F" },
+      { label:"Walk home from FHP", value:`~${W.FHP_TO_HOME} min` },
     ];
   }
 
+  const caveats = ["F can have 8+ min gaps — check next arrival before committing."];
+  if (connectionCaveat) caveats.unshift(connectionCaveat);
+
   return {
     id:"r1", name:"via F Train",
-    desc:"4/5 → 6 at 14 St → F at Bleecker → Fort Hamilton Pkwy",
-    icon:"🚇", total, stack,
-    caveats:["F can have 8+ min gaps — check next arrival before committing."],
-    bikeRequired:false,
+    desc:"4/5 → 6 at Bleecker → F at Broadway-Lafayette → Fort Hamilton Pkwy",
+    icon:"🚇", total, stack, caveats, bikeRequired:false,
   };
 }
 
@@ -416,13 +429,13 @@ function calcR2() {
   let total = null;
 
   if (t23 && bike.hasEbike) {
-    total = t23.min + W.NEVINS_TO_PLATFORM + T.NEVINS_TO_GAP
+    total = t23.min + T.NEVINS_TO_GAP
           + W.GRAND_ARMY_TO_DOCK + W.PARK_DRIVE_RIDE + W.SW_EXIT_TO_HOME;
   }
 
   const stack = [
     { label:"2/3 at Nevins St",        value:t23?`${t23.min} min`:"—", line:t23?.line||"2", note:t23?.next?`Next: ${t23.next.min} min`:null },
-    { label:"Ride → Grand Army Plaza", value:`~${W.NEVINS_TO_PLATFORM + T.NEVINS_TO_GAP} min` },
+    { label:"Ride → Grand Army Plaza", value:`~${T.NEVINS_TO_GAP} min` },
     { label:"Citi Bike pickup",        value:bike.summary, isHighlight:!bike.hasEbike },
     { label:"Park drive → home dock", value:`~${W.PARK_DRIVE_RIDE + W.SW_EXIT_TO_HOME} min` },
   ];
@@ -498,9 +511,17 @@ function renderRoutes() {
     return;
   }
 
-  if (state.phase === "approaching-atlantic") {
-    c.innerHTML = `<div class="decision-header">⚡ Atlantic: B or Q — whichever comes first</div>`
-      + routeCard(calcR3(), true);
+  if (state.phase === "at-atlantic") {
+    const r3 = calcR3();
+    const bq = nextTrain("235", ["B","Q"]);
+    let runWalkMsg = "";
+    if (bq) {
+      if (bq.min < 1.5) runWalkMsg = "⚠ Missed — wait for next train";
+      else if (bq.min < 3) runWalkMsg = "🏃 Run — next " + bq.line + " in " + bq.min + " min";
+      else runWalkMsg = "🚶 Walk — next " + bq.line + " in " + bq.min + " min";
+    }
+    c.innerHTML = `<div class="decision-header">⚡ At Atlantic: ${runWalkMsg || "checking..."}</div>`
+      + routeCard(r3, true);
     return;
   }
 
